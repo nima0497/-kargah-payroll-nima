@@ -8,177 +8,1373 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="کارکرد کارگاه">
 <title>کارکرد کارگاه</title>
+
 <style>
-*{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,sans-serif;background:#f3f4f6;margin:0;color:#111827}
-main{max-width:720px;margin:auto;padding:16px}.card{background:#fff;border-radius:18px;padding:17px;margin:11px 0;box-shadow:0 4px 18px #0000000d}
-h1,h2,h3{margin:0 0 12px}input,select,button{width:100%;padding:13px;border-radius:12px;border:1px solid #d1d5db;margin:5px 0;font-size:16px}
-button{background:#111827;color:#fff;border:0;font-weight:700;cursor:pointer}.secondary{background:#e5e7eb;color:#111827}.danger{background:#b91c1c}.ok{background:#047857}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.muted{color:#6b7280;font-size:13px}.item{border-top:1px solid #eee;padding:12px 0}.money{font-size:21px;font-weight:800}
-.hidden{display:none}.pill{display:inline-block;padding:5px 9px;border-radius:999px;background:#f3f4f6;font-size:12px}
-.summary{display:grid;grid-template-columns:1fr 1fr;gap:8px}.summary .card{text-align:center;margin:0}.num{font-size:24px;font-weight:800}
-.err{color:#b91c1c}.success{color:#047857}
+*{box-sizing:border-box}
+
+body{
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,sans-serif;
+background:#f3f4f6;
+margin:0;
+color:#111827
+}
+
+main{
+max-width:720px;
+margin:auto;
+padding:16px
+}
+
+.card{
+background:#fff;
+border-radius:18px;
+padding:17px;
+margin:11px 0;
+box-shadow:0 4px 18px #0000000d
+}
+
+h1,h2,h3{
+margin:0 0 12px
+}
+
+input,select,button{
+width:100%;
+padding:13px;
+border-radius:12px;
+border:1px solid #d1d5db;
+margin:5px 0;
+font-size:16px
+}
+
+button{
+background:#111827;
+color:#fff;
+border:0;
+font-weight:700;
+cursor:pointer
+}
+
+.secondary{
+background:#e5e7eb;
+color:#111827
+}
+
+.danger{
+background:#b91c1c
+}
+
+.ok{
+background:#047857
+}
+
+.row{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px
+}
+
+.muted{
+color:#6b7280;
+font-size:13px
+}
+
+.item{
+border-top:1px solid #eee;
+padding:12px 0
+}
+
+.money{
+font-size:21px;
+font-weight:800
+}
+
+.hidden{
+display:none
+}
+
+.pill{
+display:inline-block;
+padding:5px 9px;
+border-radius:999px;
+background:#f3f4f6;
+font-size:12px
+}
+
+.summary{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px
+}
+
+.summary .card{
+text-align:center;
+margin:0
+}
+
+.num{
+font-size:24px;
+font-weight:800
+}
+
+.err{
+color:#b91c1c
+}
+
+.success{
+color:#047857
+}
 </style>
 </head>
-<body><main><div id="app"></div></main>
 
-<!-- نسخه سازگارتر با Safari: Supabase به صورت script معمولی لود می‌شود -->
+<body>
+<main>
+<div id="app"></div>
+</main>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
+
 const SUPA_URL="https://dkwlbxlzzxtsoslzppot.supabase.co";
+
 const SUPA_KEY="sb_publishable__CTj81JM5kWr4DddanPIXQ_8y7Xl2eW";
+
 const API=SUPA_URL+"/functions/v1/kargah";
+
 const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
+
 const app=document.querySelector("#app");
-const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+
+const esc=s=>String(s??"").replace(
+/[&<>"']/g,
+m=>({
+"&":"&amp;",
+"<":"&lt;",
+">":"&gt;",
+'"':"&quot;",
+"'":"&#039;"
+}[m])
+);
+
+
+/* =========================
+   LOGIN
+========================= */
 
 function login(){
- app.innerHTML=`<div class="card">
- <h1>کارکرد کارگاه</h1><p class="muted">ورود کارگر یا مدیر</p>
- <input id="email" type="email" placeholder="ایمیل">
- <input id="pass" type="password" placeholder="رمز عبور">
- <button id="in">ورود</button><button class="secondary" id="signup">ساخت حساب</button>
- <p id="msg" class="muted"></p></div>`;
- document.getElementById("in").onclick=async()=>{
-   msg.textContent="";
-   const {error}=await sb.auth.signInWithPassword({email:email.value.trim(),password:pass.value});
-   if(error) msg.textContent=error.message; else render();
- };
- document.getElementById("signup").onclick=async()=>{
-   const name=prompt("نام و نام خانوادگی");
-   if(!name)return;
-   const {error}=await sb.auth.signUp({email:email.value.trim(),password:pass.value,options:{data:{full_name:name}}});
-   msg.textContent=error?error.message:"حساب ساخته شد. اگر تأیید ایمیل خواست، تأییدش کن و بعد وارد شو.";
- };
+
+app.innerHTML=`
+
+<div class="card">
+
+<h1>کارکرد کارگاه</h1>
+
+<p class="muted">
+ورود مدیر یا نیرو
+</p>
+
+<input
+id="loginid"
+placeholder="ایمیل مدیر یا کد نیرو"
+>
+
+<input
+id="pass"
+type="password"
+placeholder="رمز عبور"
+>
+
+<button id="in">
+ورود
+</button>
+
+<p id="msg" class="muted"></p>
+
+</div>
+
+`;
+
+document.getElementById("in").onclick=async()=>{
+
+msg.textContent="";
+
+const raw=loginid.value.trim();
+
+if(!raw){
+msg.textContent="ایمیل یا کد نیرو را وارد کن";
+return;
 }
+
+if(!pass.value){
+msg.textContent="رمز عبور را وارد کن";
+return;
+}
+
+
+/*
+اگر ورودی @ داشته باشد،
+مدیر است و همان ایمیل استفاده می‌شود.
+
+اگر @ نداشته باشد،
+کد نیرو به ایمیل داخلی تبدیل می‌شود.
+*/
+
+const email=raw.includes("@")
+?raw
+:(raw.toLowerCase()+"@kargah.local");
+
+
+const {error}=await sb.auth.signInWithPassword({
+email:email,
+password:pass.value
+});
+
+
+if(error){
+
+msg.className="err";
+msg.textContent=error.message;
+
+}else{
+
+render();
+
+}
+
+};
+
+}
+
+
+/* =========================
+   CURRENT USER
+========================= */
 
 async function me(){
- const {data:{user}}=await sb.auth.getUser();
- if(!user)return null;
- const {data:p}=await sb.from("profiles").select("*").eq("id",user.id).single();
- return p||null;
+
+const {
+data:{user}
+}=await sb.auth.getUser();
+
+if(!user)return null;
+
+const {
+data:p
+}=await sb
+.from("profiles")
+.select("*")
+.eq("id",user.id)
+.single();
+
+return p||null;
+
 }
+
+
+/* =========================
+   BOOTSTRAP MANAGER
+========================= */
 
 async function bootstrap(){
- const {data:{session}}=await sb.auth.getSession();
- if(!session)return null;
- try{
-   const r=await fetch(API+"/bootstrap",{method:"POST",
-     headers:{Authorization:"Bearer "+session.access_token,apikey:SUPA_KEY,"Content-Type":"application/json"}});
-   return await r.json();
- }catch(e){return {error:e.message}}
+
+const {
+data:{session}
+}=await sb.auth.getSession();
+
+if(!session)return null;
+
+try{
+
+const r=await fetch(
+API+"/bootstrap",
+{
+method:"POST",
+headers:{
+Authorization:"Bearer "+session.access_token,
+apikey:SUPA_KEY,
+"Content-Type":"application/json"
 }
+}
+);
+
+return await r.json();
+
+}catch(e){
+
+return {
+error:e.message
+};
+
+}
+
+}
+
+
+/* =========================
+   RENDER
+========================= */
 
 async function render(){
- const p=await me();
- if(!p){login();return}
- p.role==="manager"?manager(p):worker(p);
+
+const p=await me();
+
+if(!p){
+
+login();
+return;
+
 }
+
+if(p.role==="manager"){
+
+manager(p);
+
+}else{
+
+worker(p);
+
+}
+
+}
+
+
+/* =========================
+   WORKER PANEL
+========================= */
 
 async function worker(p){
- const [{data:models},{data:devices},{data:entries}]=await Promise.all([
-   sb.from("models").select("*").eq("active",true).order("name"),
-   sb.from("devices").select("id,name,heads,active").eq("active",true).order("heads"),
-   sb.from("work_entries").select("*,model_parts(part_name,size_label,models(name)),devices(name,heads)").eq("worker_id",p.id).order("created_at",{ascending:false}).limit(80)
- ]);
- let parts=[];
- app.innerHTML=`<div class="card"><h2>سلام ${esc(p.full_name)}</h2><button class="secondary" id="out">خروج</button></div>
- <div class="card"><h2>ثبت کار</h2>
- <select id="model"><option value="">مدل را انتخاب کن</option>${(models||[]).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select>
- <select id="part"><option value="">قسمت را انتخاب کن</option></select>
- <select id="device"><option value="">دستگاه را انتخاب کن</option>${(devices||[]).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select>
- <select id="type"><option value="complete">کار کامل</option><option value="manual">ثبت دستی سوزن</option></select>
- <input id="qty" type="number" min="1" value="1" placeholder="تعداد">
- <input id="manual" class="hidden" type="number" min="0" placeholder="تعداد سوزن انجام‌شده">
- <p id="calc" class="muted"></p><button id="save">ثبت کار</button><p id="msg"></p></div>
- <div class="card"><h2>کارهای من</h2><div id="list"></div></div>`;
 
- document.getElementById("model").onchange=async()=>{
-   const r=await sb.from("model_parts").select("*,models(name)").eq("model_id",model.value).eq("active",true).order("part_name");
-   parts=r.data||[];
-   part.innerHTML='<option value="">قسمت را انتخاب کن</option>'+parts.map(x=>`<option value="${x.id}">${esc(x.part_name)}${x.size_label?` — سایز ${esc(x.size_label)}`:""} — ${Number(x.needles).toLocaleString()} سوزن</option>`).join("");
-   calcIt();
- };
- function calcIt(){
-   const pt=parts.find(x=>String(x.id)===String(part.value));
-   const n=type.value==="manual"?Number(manual.value||0):Number(pt?.needles||0)*Number(qty.value||1);
-   calc.textContent=n?`تعداد سوزن: ${n.toLocaleString()} — مبلغ بر اساس نرخ دستگاه بعد از ثبت محاسبه می‌شود.`:"";
- }
- [part,qty,manual,type].forEach(x=>x.addEventListener("input",calcIt));
- type.onchange=()=>{manual.classList.toggle("hidden",type.value!=="manual");calcIt()};
- save.onclick=async()=>{
-   msg.className="";
-   const pt=parts.find(x=>String(x.id)===String(part.value));
-   if(!pt||!device.value)return msg.textContent="مدل، قسمت و دستگاه را انتخاب کن";
-   const manualN=type.value==="manual"?Number(manual.value||0):null;
-   const {error}=await sb.from("work_entries").insert({
-     worker_id:p.id,model_part_id:pt.id,device_id:Number(device.value),
-     entry_type:type.value,quantity:Number(qty.value||1),manual_needles:manualN,
-     status:"pending",work_date:new Date().toISOString().slice(0,10)
-   });
-   if(error){msg.className="err";msg.textContent=error.message}
-   else{msg.className="success";msg.textContent="ثبت شد و برای تأیید مدیر رفت.";setTimeout(()=>worker(p),500)}
- };
- out.onclick=()=>sb.auth.signOut().then(login);
- list.innerHTML=(entries||[]).map(e=>`<div class="item"><b>${esc(e.model_parts?.models?.name)} — ${esc(e.model_parts?.part_name)}${e.model_parts?.size_label?" — سایز "+esc(e.model_parts.size_label):""}</b>
- <br>${Number(e.total_needles).toLocaleString()} سوزن — <span class="money">${Number(e.amount).toLocaleString()} تومان</span>
- <br><span class="pill">${esc(e.status==="pending"?"در انتظار تأیید":e.status==="approved"?"تأیید شده":"رد شده")}</span> <span class="muted">${e.work_date}</span></div>`).join("")||'<p class="muted">هنوز کاری ثبت نشده.</p>';
+const [
+{data:models},
+{data:devices},
+{data:entries}
+]=await Promise.all([
+
+sb
+.from("models")
+.select("*")
+.eq("active",true)
+.order("name"),
+
+sb
+.from("devices")
+.select("id,name,heads,active")
+.eq("active",true)
+.order("heads"),
+
+sb
+.from("work_entries")
+.select("*,model_parts(part_name,size_label,models(name)),devices(name,heads)")
+.eq("worker_id",p.id)
+.order("created_at",{ascending:false})
+.limit(80)
+
+]);
+
+
+let parts=[];
+
+
+app.innerHTML=`
+
+<div class="card">
+
+<h2>
+سلام ${esc(p.full_name)}
+</h2>
+
+<button class="secondary" id="out">
+خروج
+</button>
+
+</div>
+
+
+<div class="card">
+
+<h2>
+ثبت کار
+</h2>
+
+
+<select id="model">
+
+<option value="">
+مدل را انتخاب کن
+</option>
+
+${(models||[]).map(x=>`
+
+<option value="${x.id}">
+${esc(x.name)}
+</option>
+
+`).join("")}
+
+</select>
+
+
+<select id="part">
+
+<option value="">
+قسمت را انتخاب کن
+</option>
+
+</select>
+
+
+<select id="device">
+
+<option value="">
+دستگاه را انتخاب کن
+</option>
+
+${(devices||[]).map(x=>`
+
+<option value="${x.id}">
+${esc(x.name)}
+</option>
+
+`).join("")}
+
+</select>
+
+
+<select id="type">
+
+<option value="complete">
+کار کامل
+</option>
+
+<option value="manual">
+ثبت دستی سوزن
+</option>
+
+</select>
+
+
+<input
+id="qty"
+type="number"
+min="1"
+value="1"
+placeholder="تعداد"
+>
+
+
+<input
+id="manual"
+class="hidden"
+type="number"
+min="0"
+placeholder="تعداد سوزن انجام‌شده"
+>
+
+
+<p id="calc" class="muted"></p>
+
+
+<button id="save">
+ثبت کار
+</button>
+
+
+<p id="msg"></p>
+
+</div>
+
+
+<div class="card">
+
+<h2>
+کارهای من
+</h2>
+
+<div id="list"></div>
+
+</div>
+
+`;
+
+
+/* انتخاب مدل */
+
+document.getElementById("model").onchange=async()=>{
+
+const r=await sb
+.from("model_parts")
+.select("*,models(name)")
+.eq("model_id",model.value)
+.eq("active",true)
+.order("part_name");
+
+parts=r.data||[];
+
+
+part.innerHTML=
+'<option value="">قسمت را انتخاب کن</option>'
++
+parts.map(x=>`
+
+<option value="${x.id}">
+${esc(x.part_name)}
+${x.size_label?` — سایز ${esc(x.size_label)}`:""}
+ — ${Number(x.needles).toLocaleString()} سوزن
+</option>
+
+`).join("");
+
+calcIt();
+
+};
+
+
+function calcIt(){
+
+const pt=parts.find(
+x=>String(x.id)===String(part.value)
+);
+
+const n=
+type.value==="manual"
+?
+Number(manual.value||0)
+:
+Number(pt?.needles||0)*Number(qty.value||1);
+
+
+calc.textContent=n
+?
+`تعداد سوزن: ${n.toLocaleString()} — مبلغ بر اساس نرخ دستگاه بعد از ثبت محاسبه می‌شود.`
+:"";
+
 }
+
+
+[part,qty,manual,type].forEach(
+x=>x.addEventListener("input",calcIt)
+);
+
+
+type.onchange=()=>{
+
+manual.classList.toggle(
+"hidden",
+type.value!=="manual"
+);
+
+calcIt();
+
+};
+
+
+/* ثبت کار */
+
+save.onclick=async()=>{
+
+msg.className="";
+
+
+const pt=parts.find(
+x=>String(x.id)===String(part.value)
+);
+
+
+if(!pt||!device.value){
+
+msg.textContent="مدل، قسمت و دستگاه را انتخاب کن";
+
+return;
+
+}
+
+
+const manualN=
+type.value==="manual"
+?
+Number(manual.value||0)
+:
+null;
+
+
+const {error}=await sb
+.from("work_entries")
+.insert({
+
+worker_id:p.id,
+
+model_part_id:pt.id,
+
+device_id:Number(device.value),
+
+entry_type:type.value,
+
+quantity:Number(qty.value||1),
+
+manual_needles:manualN,
+
+status:"pending",
+
+work_date:new Date()
+.toISOString()
+.slice(0,10)
+
+});
+
+
+if(error){
+
+msg.className="err";
+
+msg.textContent=error.message;
+
+}else{
+
+msg.className="success";
+
+msg.textContent=
+"ثبت شد و برای تأیید مدیر رفت.";
+
+setTimeout(
+()=>worker(p),
+500
+);
+
+}
+
+};
+
+
+/* خروج */
+
+out.onclick=()=>{
+
+sb.auth.signOut().then(login);
+
+};
+
+
+/* لیست کارها */
+
+list.innerHTML=
+(entries||[])
+.map(e=>`
+
+<div class="item">
+
+<b>
+${esc(e.model_parts?.models?.name)}
+—
+${esc(e.model_parts?.part_name)}
+
+${e.model_parts?.size_label
+?
+" — سایز "+esc(e.model_parts.size_label)
+:""}
+
+</b>
+
+<br>
+
+${Number(e.total_needles).toLocaleString()}
+سوزن
+
+—
+
+<span class="money">
+${Number(e.amount).toLocaleString()}
+تومان
+</span>
+
+<br>
+
+<span class="pill">
+
+${
+e.status==="pending"
+?
+"در انتظار تأیید"
+:
+e.status==="approved"
+?
+"تأیید شده"
+:
+"رد شده"
+}
+
+</span>
+
+<span class="muted">
+${e.work_date}
+</span>
+
+</div>
+
+`)
+.join("")
+||
+'<p class="muted">هنوز کاری ثبت نشده.</p>';
+
+}
+
+
+/* =========================
+   MANAGER PANEL
+========================= */
 
 async function manager(p){
- const [{data:pending},{data:workers},{data:today},{data:month},{data:models},{data:devices}]=await Promise.all([
-   sb.from("work_entries").select("*,profiles!work_entries_worker_id_fkey(full_name),model_parts(part_name,size_label,models(name)),devices(name,heads)").eq("status","pending").order("created_at"),
-   sb.from("profiles").select("id,full_name,active").eq("role","worker").order("full_name"),
-   sb.from("work_entries").select("amount,total_needles").eq("status","approved").eq("work_date",new Date().toISOString().slice(0,10)),
-   sb.from("work_entries").select("amount,total_needles").eq("status","approved").gte("work_date",new Date().toISOString().slice(0,7)+"-01"),
-   sb.from("models").select("*,model_parts(*)").order("name"),
-   sb.from("devices").select("*").order("heads")
- ]);
- const sum=a=>(a||[]).reduce((s,x)=>s+Number(x.amount||0),0);
- const needles=a=>(a||[]).reduce((s,x)=>s+Number(x.total_needles||0),0);
- app.innerHTML=`<div class="card"><h2>پنل مدیریت</h2><p>سلام ${esc(p.full_name)}</p><button class="secondary" id="out">خروج</button></div>
- <div class="summary"><div class="card"><div class="num">${Number(sum(today)).toLocaleString()}</div><div class="muted">تومان امروز</div></div>
- <div class="card"><div class="num">${Number(sum(month)).toLocaleString()}</div><div class="muted">تومان این ماه</div></div>
- <div class="card"><div class="num">${Number(needles(today)).toLocaleString()}</div><div class="muted">سوزن امروز</div></div>
- <div class="card"><div class="num">${(pending||[]).length}</div><div class="muted">منتظر تأیید</div></div></div>
- <div class="card"><h2>تأیید کارها</h2><div id="pending"></div></div>
- <div class="card"><h2>کارگرها</h2><div id="workers"></div>
- <hr><h3>افزودن کارگر</h3><input id="wname" placeholder="نام و نام خانوادگی"><input id="wemail" type="email" placeholder="ایمیل"><input id="wpass" type="password" placeholder="رمز عبور"><button id="addw">ساخت حساب کارگر</button><p id="wmsg"></p></div>
- <div class="card"><h2>مدل‌ها</h2>${(models||[]).map(m=>`<div class="item"><b>${esc(m.name)}</b><br><span class="muted">${m.model_parts.length} قسمت</span></div>`).join("")}</div>
- <div class="card"><h2>دستگاه‌ها و نرخ</h2>${(devices||[]).map(d=>`<div class="item">${esc(d.name)} — ${Number(d.rate_per_1000).toLocaleString()} تومان / هزار سوزن</div>`).join("")}</div>`;
- pending.innerHTML=(pending||[]).map(e=>`<div class="item"><b>${esc(e.profiles?.full_name)}</b><br>${esc(e.model_parts?.models?.name)} — ${esc(e.model_parts?.part_name)}${e.model_parts?.size_label?" — سایز "+esc(e.model_parts.size_label):""}<br>${Number(e.total_needles).toLocaleString()} سوزن — ${Number(e.amount).toLocaleString()} تومان
- <button class="ok" data-ok="${e.id}">تأیید</button><button class="danger" data-no="${e.id}">رد</button></div>`).join("")||'<p class="muted">موردی برای تأیید نیست.</p>';
- workers.innerHTML=(workers||[]).map(w=>`<div class="item">${esc(w.full_name)} ${w.active?"":"(غیرفعال)"}</div>`).join("")||'<p class="muted">کارگری ثبت نشده.</p>';
- document.querySelectorAll("[data-ok]").forEach(b=>b.onclick=async()=>{
-   const {error}=await sb.from("work_entries").update({status:"approved",approved_at:new Date().toISOString(),approved_by:p.id}).eq("id",b.dataset.ok).eq("status","pending");
-   if(error)alert(error.message);else manager(p);
- });
- document.querySelectorAll("[data-no]").forEach(b=>b.onclick=async()=>{
-   const {error}=await sb.from("work_entries").update({status:"rejected",rejected_at:new Date().toISOString(),rejected_by:p.id}).eq("id",b.dataset.no).eq("status","pending");
-   if(error)alert(error.message);else manager(p);
- });
- addw.onclick=async()=>{
-   wmsg.textContent="";
-   const {data:{session}}=await sb.auth.getSession();
-   const r=await fetch(API+"/worker",{method:"POST",headers:{Authorization:"Bearer "+session.access_token,apikey:SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify({email:wemail.value.trim(),password:wpass.value,full_name:wname.value.trim()})});
-   const j=await r.json(); wmsg.textContent=j.error||"کارگر ساخته شد."; if(!j.error)setTimeout(()=>manager(p),500);
- };
- out.onclick=()=>sb.auth.signOut().then(login);
+
+const [
+
+{data:pending},
+
+{data:workers},
+
+{data:today},
+
+{data:month},
+
+{data:models},
+
+{data:devices}
+
+]=await Promise.all([
+
+
+sb
+.from("work_entries")
+.select("*,profiles!work_entries_worker_id_fkey(full_name),model_parts(part_name,size_label,models(name)),devices(name,heads)")
+.eq("status","pending")
+.order("created_at"),
+
+
+sb
+.from("profiles")
+.select("id,full_name,worker_code,active")
+.eq("role","worker")
+.order("full_name"),
+
+
+sb
+.from("work_entries")
+.select("amount,total_needles")
+.eq("status","approved")
+.eq(
+"work_date",
+new Date().toISOString().slice(0,10)
+),
+
+
+sb
+.from("work_entries")
+.select("amount,total_needles")
+.eq("status","approved")
+.gte(
+"work_date",
+new Date().toISOString().slice(0,7)+"-01"
+),
+
+
+sb
+.from("models")
+.select("*,model_parts(*)")
+.order("name"),
+
+
+sb
+.from("devices")
+.select("*")
+.order("heads")
+
+]);
+
+
+const sum=a=>
+(a||[])
+.reduce(
+(s,x)=>s+Number(x.amount||0),
+0
+);
+
+
+const needles=a=>
+(a||[])
+.reduce(
+(s,x)=>s+Number(x.total_needles||0),
+0
+);
+
+
+app.innerHTML=`
+
+<div class="card">
+
+<h2>
+پنل مدیریت
+</h2>
+
+<p>
+سلام ${esc(p.full_name)}
+</p>
+
+<button class="secondary" id="out">
+خروج
+</button>
+
+</div>
+
+
+<div class="summary">
+
+<div class="card">
+
+<div class="num">
+${Number(sum(today)).toLocaleString()}
+</div>
+
+<div class="muted">
+تومان امروز
+</div>
+
+</div>
+
+
+<div class="card">
+
+<div class="num">
+${Number(sum(month)).toLocaleString()}
+</div>
+
+<div class="muted">
+تومان این ماه
+</div>
+
+</div>
+
+
+<div class="card">
+
+<div class="num">
+${Number(needles(today)).toLocaleString()}
+</div>
+
+<div class="muted">
+سوزن امروز
+</div>
+
+</div>
+
+
+<div class="card">
+
+<div class="num">
+${(pending||[]).length}
+</div>
+
+<div class="muted">
+منتظر تأیید
+</div>
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>
+تأیید کارها
+</h2>
+
+<div id="pending"></div>
+
+</div>
+
+
+<div class="card">
+
+<h2>
+نیروها
+</h2>
+
+<div id="workers"></div>
+
+<hr>
+
+<h3>
+افزودن نیرو
+</h3>
+
+
+<input
+id="wname"
+placeholder="نام و نام خانوادگی"
+>
+
+
+<input
+id="wcode"
+placeholder="کد نیرو، مثلاً N001"
+>
+
+
+<input
+id="wpass"
+type="text"
+value="Kargah@1234"
+placeholder="رمز عبور"
+>
+
+
+<button id="addw">
+ساخت حساب نیرو
+</button>
+
+
+<p id="wmsg"></p>
+
+</div>
+
+
+<div class="card">
+
+<h2>
+مدل‌ها
+</h2>
+
+${(models||[])
+.map(m=>`
+
+<div class="item">
+
+<b>
+${esc(m.name)}
+</b>
+
+<br>
+
+<span class="muted">
+${m.model_parts.length}
+قسمت
+</span>
+
+</div>
+
+`)
+.join("")}
+
+</div>
+
+
+<div class="card">
+
+<h2>
+دستگاه‌ها و نرخ
+</h2>
+
+${(devices||[])
+.map(d=>`
+
+<div class="item">
+
+${esc(d.name)}
+—
+
+${Number(d.rate_per_1000).toLocaleString()}
+تومان / هزار سوزن
+
+</div>
+
+`)
+.join("")}
+
+</div>
+
+`;
+
+
+/* کارهای منتظر تأیید */
+
+pending.innerHTML=
+(pending||[])
+.map(e=>`
+
+<div class="item">
+
+<b>
+${esc(e.profiles?.full_name)}
+</b>
+
+<br>
+
+${esc(e.model_parts?.models?.name)}
+—
+
+${esc(e.model_parts?.part_name)}
+
+${e.model_parts?.size_label
+?
+" — سایز "+esc(e.model_parts.size_label)
+:""}
+
+<br>
+
+${Number(e.total_needles).toLocaleString()}
+سوزن
+
+—
+
+${Number(e.amount).toLocaleString()}
+تومان
+
+
+<button
+class="ok"
+data-ok="${e.id}"
+>
+تأیید
+</button>
+
+
+<button
+class="danger"
+data-no="${e.id}"
+>
+رد
+</button>
+
+</div>
+
+`)
+.join("")
+||
+'<p class="muted">موردی برای تأیید نیست.</p>';
+
+
+/* لیست نیروها */
+
+workers.innerHTML=
+(workers||[])
+.map(w=>`
+
+<div class="item">
+
+<b>
+${esc(w.full_name)}
+</b>
+
+<br>
+
+<span class="muted">
+کد نیرو: ${esc(w.worker_code||"—")}
+</span>
+
+${w.active
+?
+""
+:
+'<span class="pill">غیرفعال</span>'
 }
 
-sb.auth.onAuthStateChange(()=>setTimeout(render,0));
+</div>
+
+`)
+.join("")
+||
+'<p class="muted">نیرویی ثبت نشده.</p>';
+
+
+/* تأیید */
+
+document
+.querySelectorAll("[data-ok]")
+.forEach(b=>
+
+b.onclick=async()=>{
+
+const {error}=await sb
+.from("work_entries")
+.update({
+
+status:"approved",
+
+approved_at:
+new Date().toISOString(),
+
+approved_by:p.id
+
+})
+.eq("id",b.dataset.ok)
+.eq("status","pending");
+
+
+if(error){
+
+alert(error.message);
+
+}else{
+
+manager(p);
+
+}
+
+}
+
+);
+
+
+/* رد */
+
+document
+.querySelectorAll("[data-no]")
+.forEach(b=>
+
+b.onclick=async()=>{
+
+const {error}=await sb
+.from("work_entries")
+.update({
+
+status:"rejected",
+
+rejected_at:
+new Date().toISOString(),
+
+rejected_by:p.id
+
+})
+.eq("id",b.dataset.no)
+.eq("status","pending");
+
+
+if(error){
+
+alert(error.message);
+
+}else{
+
+manager(p);
+
+}
+
+}
+
+);
+
+
+/* ساخت نیرو */
+
+addw.onclick=async()=>{
+
+wmsg.textContent="";
+
+
+const name=wname.value.trim();
+
+const code=wcode.value.trim();
+
+const password=wpass.value;
+
+
+if(!name){
+
+wmsg.className="err";
+
+wmsg.textContent=
+"نام نیرو را وارد کن";
+
+return;
+
+}
+
+
+if(!code){
+
+wmsg.className="err";
+
+wmsg.textContent=
+"کد نیرو را وارد کن";
+
+return;
+
+}
+
+
+if(!password){
+
+wmsg.className="err";
+
+wmsg.textContent=
+"رمز عبور را وارد کن";
+
+return;
+
+}
+
+
+const {
+data:{session}
+}=await sb.auth.getSession();
+
+
+if(!session){
+
+wmsg.className="err";
+
+wmsg.textContent=
+"نشست مدیر منقضی شده؛ دوباره وارد شو.";
+
+return;
+
+}
+
+
+try{
+
+const r=await fetch(
+
+API+"/worker",
+
+{
+
+method:"POST",
+
+headers:{
+
+Authorization:
+"Bearer "+session.access_token,
+
+apikey:SUPA_KEY,
+
+"Content-Type":
+"application/json"
+
+},
+
+body:JSON.stringify({
+
+code:code,
+
+password:password,
+
+full_name:name
+
+})
+
+}
+
+);
+
+
+const j=await r.json();
+
+
+if(j.error){
+
+wmsg.className="err";
+
+wmsg.textContent=j.error;
+
+}else{
+
+wmsg.className="success";
+
+wmsg.textContent=
+"حساب نیرو ساخته شد.";
+
+setTimeout(
+()=>manager(p),
+700
+);
+
+}
+
+}catch(e){
+
+wmsg.className="err";
+
+wmsg.textContent=
+e.message;
+
+}
+
+};
+
+
+/* خروج */
+
+out.onclick=()=>{
+
+sb.auth.signOut().then(login);
+
+};
+
+}
+
+
+/* =========================
+   AUTH STATE
+========================= */
+
+sb.auth.onAuthStateChange(
+()=>setTimeout(render,0)
+);
+
+
+/* =========================
+   START
+========================= */
 
 (async()=>{
- const {data:{session}}=await sb.auth.getSession();
- if(!session){login();return}
 
- // bootstrap همیشه یک بار اجرا می‌شود تا اولین حساب بتواند مدیر شود.
- const b=await bootstrap();
- if(b?.error && b?.ok!==true){
-   // اگر مدیر از قبل وجود دارد، خطای bootstrap مانع ورود نشود.
- }
- const p=await me();
- if(p) render();
- else login();
+const {
+data:{session}
+}=await sb.auth.getSession();
+
+
+if(!session){
+
+login();
+
+return;
+
+}
+
+
+/*
+bootstrap فقط برای اولین حساب مدیر
+استفاده می‌شود.
+*/
+
+const b=await bootstrap();
+
+
+if(b?.error && b?.ok!==true){
+
+/*
+اگر مدیر از قبل وجود داشته باشد،
+خطای bootstrap مانع ورود نمی‌شود.
+*/
+
+}
+
+
+const p=await me();
+
+
+if(p){
+
+render();
+
+}else{
+
+login();
+
+}
+
 })();
+
 </script>
-</body></html>
+
+</body>
+</html>
