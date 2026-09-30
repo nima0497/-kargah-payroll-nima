@@ -145,6 +145,11 @@ const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
 
 const app=document.querySelector("#app");
 
+
+/* =========================
+   HELPERS
+========================= */
+
 const esc=s=>String(s??"").replace(
 /[&<>"']/g,
 m=>({
@@ -155,6 +160,34 @@ m=>({
 "'":"&#039;"
 }[m])
 );
+
+
+/* تاریخ شمسی */
+
+function shamsi(dateValue){
+
+if(!dateValue)return "";
+
+const d=new Date(
+String(dateValue).length===10
+?
+dateValue+"T00:00:00"
+:
+dateValue
+);
+
+if(Number.isNaN(d.getTime()))return "";
+
+return new Intl.DateTimeFormat(
+"fa-IR-u-ca-persian",
+{
+year:"numeric",
+month:"2-digit",
+day:"2-digit"
+}
+).format(d);
+
+}
 
 
 /* =========================
@@ -201,38 +234,50 @@ msg.textContent="";
 const raw=loginid.value.trim();
 
 if(!raw){
+
 msg.textContent="ایمیل یا کد نیرو را وارد کن";
+
 return;
+
 }
 
 if(!pass.value){
+
 msg.textContent="رمز عبور را وارد کن";
+
 return;
+
 }
 
 
 /*
 اگر ورودی @ داشته باشد،
-مدیر است و همان ایمیل استفاده می‌شود.
+مدیر است.
 
 اگر @ نداشته باشد،
 کد نیرو به ایمیل داخلی تبدیل می‌شود.
 */
 
 const email=raw.includes("@")
-?raw
-:(raw.toLowerCase()+"@kargah.local");
+?
+raw
+:
+(raw.toLowerCase()+"@kargah.local");
 
 
 const {error}=await sb.auth.signInWithPassword({
+
 email:email,
+
 password:pass.value
+
 });
 
 
 if(error){
 
 msg.className="err";
+
 msg.textContent=error.message;
 
 }else{
@@ -321,6 +366,7 @@ const p=await me();
 if(!p){
 
 login();
+
 return;
 
 }
@@ -447,7 +493,7 @@ ${esc(x.name)}
 </option>
 
 <option value="manual">
-ثبت دستی سوزن
+کار دستی
 </option>
 
 </select>
@@ -458,7 +504,7 @@ id="qty"
 type="number"
 min="1"
 value="1"
-placeholder="تعداد"
+placeholder="تعداد کامل"
 >
 
 
@@ -466,9 +512,17 @@ placeholder="تعداد"
 id="manual"
 class="hidden"
 type="number"
-min="0"
-placeholder="تعداد سوزن انجام‌شده"
+min="1"
+placeholder="تعداد واقعی سوزن انجام‌شده"
 >
+
+<p
+id="manualHelp"
+class="muted hidden"
+>
+برای کار دستی، تعداد واقعی سوزن کارشده را وارد کن؛
+حتی اگر نصف یا بخشی از یک قسمت باشد.
+</p>
 
 
 <p id="calc" class="muted"></p>
@@ -529,39 +583,68 @@ calcIt();
 };
 
 
+/* محاسبه */
+
 function calcIt(){
 
 const pt=parts.find(
 x=>String(x.id)===String(part.value)
 );
 
-const n=
-type.value==="manual"
-?
-Number(manual.value||0)
-:
-Number(pt?.needles||0)*Number(qty.value||1);
+let n=0;
 
+if(type.value==="manual"){
+
+n=Number(manual.value||0);
+
+}else{
+
+n=
+Number(pt?.needles||0)
+*
+Number(qty.value||1);
+
+}
 
 calc.textContent=n
 ?
 `تعداد سوزن: ${n.toLocaleString()} — مبلغ بر اساس نرخ دستگاه بعد از ثبت محاسبه می‌شود.`
-:"";
+:
+"";
 
 }
 
 
-[part,qty,manual,type].forEach(
-x=>x.addEventListener("input",calcIt)
+/* تغییر فیلدها */
+
+[part,qty,manual].forEach(x=>
+x.addEventListener("input",calcIt)
 );
 
 
 type.onchange=()=>{
 
+const isManual=
+type.value==="manual";
+
+
 manual.classList.toggle(
 "hidden",
-type.value!=="manual"
+!isManual
 );
+
+
+manualHelp.classList.toggle(
+"hidden",
+!isManual
+);
+
+
+qty.classList.toggle(
+"hidden",
+isManual
+);
+
 
 calcIt();
 
@@ -574,7 +657,6 @@ save.onclick=async()=>{
 
 msg.className="";
 
-
 const pt=parts.find(
 x=>String(x.id)===String(part.value)
 );
@@ -582,20 +664,57 @@ x=>String(x.id)===String(part.value)
 
 if(!pt||!device.value){
 
-msg.textContent="مدل، قسمت و دستگاه را انتخاب کن";
+msg.textContent=
+"مدل، قسمت و دستگاه را انتخاب کن";
 
 return;
 
 }
 
 
+const isManual=
+type.value==="manual";
+
+
 const manualN=
-type.value==="manual"
+isManual
 ?
 Number(manual.value||0)
 :
 null;
 
+
+if(isManual && manualN<=0){
+
+msg.className="err";
+
+msg.textContent=
+"تعداد واقعی سوزن را وارد کن";
+
+return;
+
+}
+
+
+if(!isManual &&
+Number(qty.value||0)<1){
+
+msg.className="err";
+
+msg.textContent=
+"تعداد را حداقل ۱ وارد کن";
+
+return;
+
+}
+
+
+/*
+هر بار زدن دکمه ثبت،
+یک رکورد جداگانه ساخته می‌شود.
+پس یک نیرو می‌تواند در یک روز
+هر تعداد کار مختلف ثبت کند.
+*/
 
 const {error}=await sb
 .from("work_entries")
@@ -609,7 +728,12 @@ device_id:Number(device.value),
 
 entry_type:type.value,
 
-quantity:Number(qty.value||1),
+quantity:
+isManual
+?
+1
+:
+Number(qty.value||1),
 
 manual_needles:manualN,
 
@@ -634,6 +758,16 @@ msg.className="success";
 
 msg.textContent=
 "ثبت شد و برای تأیید مدیر رفت.";
+
+
+/*
+بعد از ثبت،
+فرم دوباره آماده ثبت کار بعدی می‌شود.
+*/
+
+manual.value="";
+
+qty.value="1";
 
 setTimeout(
 ()=>worker(p),
@@ -670,7 +804,8 @@ ${esc(e.model_parts?.part_name)}
 ${e.model_parts?.size_label
 ?
 " — سایز "+esc(e.model_parts.size_label)
-:""}
+:
+""}
 
 </b>
 
@@ -705,7 +840,7 @@ e.status==="approved"
 </span>
 
 <span class="muted">
-${e.work_date}
+${shamsi(e.work_date)}
 </span>
 
 </div>
@@ -1015,7 +1150,8 @@ ${esc(e.model_parts?.part_name)}
 ${e.model_parts?.size_label
 ?
 " — سایز "+esc(e.model_parts.size_label)
-:""}
+:
+""}
 
 <br>
 
@@ -1167,7 +1303,6 @@ manager(p);
 addw.onclick=async()=>{
 
 wmsg.textContent="";
-
 
 const name=wname.value.trim();
 
