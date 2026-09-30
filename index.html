@@ -71,6 +71,10 @@ background:#047857
 background:#b45309
 }
 
+.pay{
+background:#047857
+}
+
 .row{
 display:grid;
 grid-template-columns:1fr 1fr;
@@ -103,6 +107,16 @@ border-radius:999px;
 background:#f3f4f6;
 font-size:12px;
 margin:2px
+}
+
+.paid{
+background:#d1fae5;
+color:#065f46
+}
+
+.unpaid{
+background:#fef3c7;
+color:#92400e
 }
 
 .summary{
@@ -162,10 +176,47 @@ border:0;
 border-top:1px solid #eee;
 margin:16px 0
 }
+
+.worker-card{
+cursor:pointer;
+transition:.15s
+}
+
+.worker-card:active{
+transform:scale(.98)
+}
+
+.big-money{
+font-size:28px;
+font-weight:900
+}
+
+.date-row{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px
+}
+
+.status-paid{
+background:#ecfdf5;
+border-radius:14px;
+padding:12px;
+color:#065f46;
+font-weight:700
+}
+
+.status-unpaid{
+background:#fffbeb;
+border-radius:14px;
+padding:12px;
+color:#92400e;
+font-weight:700
+}
 </style>
 </head>
 
 <body>
+
 <main>
 <div id="app"></div>
 </main>
@@ -200,9 +251,6 @@ m=>({
 }[m])
 );
 
-
-/* تاریخ امروز به میلادی، بر اساس ساعت خود گوشی */
-
 function todayISO(){
 
 const d=new Date();
@@ -217,8 +265,21 @@ return `${y}-${m}-${day}`;
 
 }
 
+function addDays(dateString,days){
 
-/* تاریخ شمسی واقعی */
+const d=new Date(dateString+"T12:00:00");
+
+d.setDate(d.getDate()+days);
+
+const y=d.getFullYear();
+
+const m=String(d.getMonth()+1).padStart(2,"0");
+
+const day=String(d.getDate()).padStart(2,"0");
+
+return `${y}-${m}-${day}`;
+
+}
 
 function shamsi(dateValue){
 
@@ -255,13 +316,11 @@ day:"2-digit"
 
 }
 
-
 function money(n){
 
 return Number(n||0).toLocaleString("fa-IR");
 
 }
-
 
 function num(n){
 
@@ -307,9 +366,7 @@ placeholder="رمز عبور"
 
 `;
 
-const loginBtn=document.getElementById("in");
-
-loginBtn.onclick=async()=>{
+document.getElementById("in").onclick=async()=>{
 
 const msg=document.getElementById("msg");
 
@@ -340,7 +397,7 @@ const email=raw.includes("@")
 ?
 raw
 :
-(raw.toLowerCase()+"@kargah.local");
+raw.toLowerCase()+"@kargah.local";
 
 const {error}=await sb.auth.signInWithPassword({
 
@@ -588,7 +645,6 @@ dayClosed
 ثبت کار
 </h2>
 
-
 <select id="model">
 
 <option value="">
@@ -744,9 +800,7 @@ ${
 `;
 
 
-const out=document.getElementById("out");
-
-out.onclick=()=>{
+document.getElementById("out").onclick=()=>{
 
 sb.auth.signOut().then(login);
 
@@ -754,7 +808,7 @@ sb.auth.signOut().then(login);
 
 
 /* =========================
-   CURRENT GARMENT INFO
+   GARMENT INFO
 ========================= */
 
 async function refreshGarmentInfo(){
@@ -826,7 +880,7 @@ info.innerHTML=`
 
 
 /* =========================
-   MODEL
+   WORK FORM
 ========================= */
 
 if(!dayClosed){
@@ -1312,7 +1366,6 @@ const today=todayISO();
 
 const monthStart=today.slice(0,7)+"-01";
 
-
 const [
 pendingRes,
 workersRes,
@@ -1323,7 +1376,6 @@ monthAdjRes,
 modelsRes,
 devicesRes
 ]=await Promise.all([
-
 
 sb
 .from("work_entries")
@@ -1337,20 +1389,17 @@ production_garments(garment_no,size_label)
 .eq("status","pending")
 .order("created_at"),
 
-
 sb
 .from("profiles")
 .select("id,full_name,worker_code,active")
 .eq("role","worker")
 .order("full_name"),
 
-
 sb
 .from("work_entries")
 .select("amount,total_needles")
 .eq("status","approved")
 .eq("work_date",today),
-
 
 sb
 .from("work_entries")
@@ -1358,24 +1407,20 @@ sb
 .eq("status","approved")
 .gte("work_date",monthStart),
 
-
 sb
 .from("work_adjustments")
 .select("amount,needles")
 .eq("work_date",today),
 
-
 sb
 .from("work_adjustments")
 .select("amount,needles")
 .gte("work_date",monthStart),
-
 
 sb
 .from("models")
 .select("*,model_parts(*)")
 .order("name"),
-
 
 sb
 .from("devices")
@@ -1389,7 +1434,6 @@ const pending=pendingRes.data||[];
 
 const workers=workersRes.data||[];
 
-/* اینجا مشکل صفحه سفید اصلاح شده */
 const todayEntries=todayRes.data||[];
 
 const month=monthRes.data||[];
@@ -1397,6 +1441,7 @@ const month=monthRes.data||[];
 const todayAdj=todayAdjRes.data||[];
 
 const monthAdj=monthAdjRes.data||[];
+
 
 const models=modelsRes.data||[];
 
@@ -1586,6 +1631,8 @@ placeholder="دلیل اصلاحیه"
 
 <div id="workers"></div>
 
+<div id="workerReport" class="hidden"></div>
+
 <hr>
 
 <h3>
@@ -1770,14 +1817,12 @@ e.note
 ""
 }
 
-
 <button
 class="ok"
 data-ok="${e.id}"
 >
 تأیید
 </button>
-
 
 <button
 class="danger"
@@ -1801,16 +1846,17 @@ data-no="${e.id}"
 document.getElementById("workers").innerHTML=
 workers.map(w=>`
 
-<div class="item">
+<div
+class="card worker-card"
+data-worker-card="${w.id}"
+>
 
-<b>
-${esc(w.full_name)}
-</b>
-
-<br>
+<h3>
+کارکرد ${esc(w.full_name)}
+</h3>
 
 <span class="muted">
-کد نیرو: ${esc(w.worker_code||"—")}
+${w.worker_code ? "کد نیرو: "+esc(w.worker_code) : ""}
 </span>
 
 ${w.active
@@ -1820,12 +1866,947 @@ ${w.active
 '<span class="pill">غیرفعال</span>'
 }
 
+<p class="muted">
+برای دیدن کارکرد و حساب مالی لمس کن
+</p>
+
 </div>
 
 `)
 .join("")
 ||
 '<p class="muted">نیرویی ثبت نشده.</p>';
+
+
+/* =========================
+   WORKER REPORT
+========================= */
+
+async function showWorkerReport(w){
+
+const workersBox=document.getElementById("workers");
+
+const report=document.getElementById("workerReport");
+
+workersBox.classList.add("hidden");
+
+report.classList.remove("hidden");
+
+
+report.innerHTML=`
+
+<div class="card">
+
+<button
+class="secondary"
+id="backWorkers"
+>
+← برگشت به نیروها
+</button>
+
+<h2 style="margin-top:12px">
+کارکرد ${esc(w.full_name)}
+</h2>
+
+<p class="muted">
+${w.worker_code ? "کد نیرو: "+esc(w.worker_code) : ""}
+</p>
+
+<div class="date-row">
+
+<div>
+
+<label class="muted">
+از تاریخ
+</label>
+
+<input
+id="reportFrom"
+type="date"
+value="${today}"
+>
+
+</div>
+
+<div>
+
+<label class="muted">
+تا تاریخ
+</label>
+
+<input
+id="reportTo"
+type="date"
+value="${today}"
+>
+
+</div>
+
+</div>
+
+<button
+id="loadReport"
+>
+نمایش کارکرد
+</button>
+
+<p id="reportMsg"></p>
+
+</div>
+
+<div id="reportResult"></div>
+
+`;
+
+document.getElementById("backWorkers").onclick=()=>{
+
+report.classList.add("hidden");
+
+workersBox.classList.remove("hidden");
+
+};
+
+
+async function loadReport(){
+
+const from=
+document.getElementById("reportFrom").value;
+
+const to=
+document.getElementById("reportTo").value;
+
+const msg=
+document.getElementById("reportMsg");
+
+const result=
+document.getElementById("reportResult");
+
+msg.textContent="";
+msg.className="";
+
+if(!from||!to){
+
+msg.className="err";
+
+msg.textContent=
+"تاریخ شروع و پایان را وارد کن";
+
+return;
+
+}
+
+if(from>to){
+
+msg.className="err";
+
+msg.textContent=
+"تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد";
+
+return;
+
+}
+
+result.innerHTML=
+`
+<div class="card">
+در حال محاسبه...
+</div>
+`;
+
+
+/*
+آخرین پرداخت این نیرو را پیدا می‌کنیم.
+هر چیزی که بعد از آخرین پرداخت باشد
+مانده حساب محسوب می‌شود.
+*/
+
+const [
+entriesRes,
+adjustmentsRes,
+paymentsRes
+]=await Promise.all([
+
+sb
+.from("work_entries")
+.select(`
+work_date,
+total_needles,
+amount,
+status,
+entry_type,
+quantity,
+created_at,
+model_parts(part_name,size_label,models(name)),
+production_garments(garment_no,size_label)
+`)
+.eq("worker_id",w.id)
+.eq("status","approved")
+.lte("work_date",to)
+.order("work_date",{ascending:true})
+.order("created_at",{ascending:true}),
+
+sb
+.from("work_adjustments")
+.select(`
+work_date,
+needles,
+amount,
+note,
+created_at
+`)
+.eq("worker_id",w.id)
+.lte("work_date",to)
+.order("work_date",{ascending:true}),
+
+sb
+.from("work_payments")
+.select(`
+id,
+paid_through,
+needles,
+amount,
+note,
+paid_at
+`)
+.eq("worker_id",w.id)
+.order("paid_through",{ascending:false})
+.order("paid_at",{ascending:false})
+
+]);
+
+
+if(entriesRes.error){
+
+result.innerHTML=
+`
+<div class="card err">
+${esc(entriesRes.error.message)}
+</div>
+`;
+
+return;
+
+}
+
+if(adjustmentsRes.error){
+
+result.innerHTML=
+`
+<div class="card err">
+${esc(adjustmentsRes.error.message)}
+</div>
+`;
+
+return;
+
+}
+
+if(paymentsRes.error){
+
+result.innerHTML=
+`
+<div class="card err">
+${esc(paymentsRes.error.message)}
+</div>
+`;
+
+return;
+
+}
+
+
+const allEntries=
+entriesRes.data||[];
+
+const allAdjustments=
+adjustmentsRes.data||[];
+
+const payments=
+paymentsRes.data||[];
+
+
+/*
+آخرین پرداخت تا قبل یا در تاریخ گزارش
+*/
+
+const lastPayment=
+payments.find(
+x=>x.paid_through<=to
+);
+
+
+/*
+تاریخ شروع مانده بعد از آخرین پرداخت
+*/
+
+const unpaidStart=
+lastPayment
+?
+addDays(lastPayment.paid_through,1)
+:
+"0001-01-01";
+
+
+/*
+اطلاعات بازه انتخاب‌شده
+*/
+
+const rangeEntries=
+allEntries.filter(
+x=>x.work_date>=from
+);
+
+const rangeAdjustments=
+allAdjustments.filter(
+x=>x.work_date>=from
+);
+
+
+/*
+مانده واقعی قابل پرداخت
+*/
+
+const unpaidEntries=
+allEntries.filter(
+x=>x.work_date>=unpaidStart
+);
+
+const unpaidAdjustments=
+allAdjustments.filter(
+x=>x.work_date>=unpaidStart
+);
+
+
+const rangeNeedles=
+rangeEntries.reduce(
+(s,x)=>s+Number(x.total_needles||0),
+0
+)
++
+rangeAdjustments.reduce(
+(s,x)=>s+Number(x.needles||0),
+0
+);
+
+
+const rangeAmount=
+rangeEntries.reduce(
+(s,x)=>s+Number(x.amount||0),
+0
+)
++
+rangeAdjustments.reduce(
+(s,x)=>s+Number(x.amount||0),
+0
+);
+
+
+const unpaidNeedles=
+unpaidEntries.reduce(
+(s,x)=>s+Number(x.total_needles||0),
+0
+)
++
+unpaidAdjustments.reduce(
+(s,x)=>s+Number(x.needles||0),
+0
+);
+
+
+const unpaidAmount=
+unpaidEntries.reduce(
+(s,x)=>s+Number(x.amount||0),
+0
+)
++
+unpaidAdjustments.reduce(
+(s,x)=>s+Number(x.amount||0),
+0
+);
+
+
+/*
+جمع روزانه
+*/
+
+const days={};
+
+
+rangeEntries.forEach(e=>{
+
+if(!days[e.work_date]){
+
+days[e.work_date]={
+needles:0,
+amount:0,
+count:0
+};
+
+}
+
+days[e.work_date].needles+=
+Number(e.total_needles||0);
+
+days[e.work_date].amount+=
+Number(e.amount||0);
+
+days[e.work_date].count++;
+
+});
+
+
+rangeAdjustments.forEach(a=>{
+
+if(!days[a.work_date]){
+
+days[a.work_date]={
+needles:0,
+amount:0,
+count:0
+};
+
+}
+
+days[a.work_date].needles+=
+Number(a.needles||0);
+
+days[a.work_date].amount+=
+Number(a.amount||0);
+
+});
+
+
+const dayRows=
+Object.entries(days)
+.sort(
+([a],[b])=>a.localeCompare(b)
+)
+.map(([date,x])=>{
+
+const isPaid=
+lastPayment &&
+date<=lastPayment.paid_through;
+
+return `
+
+<div class="item">
+
+<b>
+${shamsi(date)}
+</b>
+
+<br>
+
+${num(x.needles)}
+سوزن
+
+—
+
+<b>
+${money(x.amount)}
+تومان
+</b>
+
+<br>
+
+${
+isPaid
+?
+`
+<span class="pill paid">
+پرداخت شده
+</span>
+`
+:
+`
+<span class="pill unpaid">
+پرداخت نشده
+</span>
+`
+}
+
+${
+x.count
+?
+`
+<span class="pill">
+${num(x.count)} ثبت کار
+</span>
+`
+:
+""
+}
+
+</div>
+
+`;
+
+})
+.join("");
+
+
+/*
+ریز کارها
+*/
+
+const detailRows=
+rangeEntries.map(e=>`
+
+<div class="item">
+
+<b>
+
+${esc(e.model_parts?.models?.name||"")}
+
+—
+
+${esc(e.model_parts?.part_name||"")}
+
+${
+e.model_parts?.size_label
+?
+` — سایز ${esc(e.model_parts.size_label)}`
+:
+""
+}
+
+</b>
+
+<br>
+
+${
+e.production_garments
+?
+`
+<span class="pill">
+لباس شماره
+${num(e.production_garments.garment_no)}
+</span>
+
+${
+e.production_garments.size_label
+?
+`
+<span class="pill">
+سایز
+${esc(e.production_garments.size_label)}
+</span>
+`
+:
+""
+}
+`
+:
+""
+}
+
+<br>
+
+${num(e.total_needles)}
+سوزن
+
+—
+
+<b>
+${money(e.amount)}
+تومان
+</b>
+
+<br>
+
+<span class="muted">
+${shamsi(e.work_date)}
+</span>
+
+</div>
+
+`)
+.join("");
+
+
+const adjustmentRows=
+rangeAdjustments.map(a=>`
+
+<div class="item">
+
+<b>
+اصلاحیه
+</b>
+
+<br>
+
+${num(a.needles)}
+سوزن
+
+—
+
+<b>
+${money(a.amount)}
+تومان
+</b>
+
+${
+a.note
+?
+`
+<div class="note">
+${esc(a.note)}
+</div>
+`
+:
+""
+}
+
+<br>
+
+<span class="muted">
+${shamsi(a.work_date)}
+</span>
+
+</div>
+
+`)
+.join("");
+
+
+/*
+سابقه پرداخت‌ها
+*/
+
+const paymentRows=
+payments.map(pay=>`
+
+<div class="item">
+
+<b>
+پرداخت تا ${shamsi(pay.paid_through)}
+</b>
+
+<br>
+
+<span class="money">
+${money(pay.amount)}
+تومان
+</span>
+
+<br>
+
+<span class="muted">
+تاریخ پرداخت:
+${shamsi(pay.paid_at)}
+</span>
+
+${
+pay.note
+?
+`
+<div class="note">
+${esc(pay.note)}
+</div>
+`
+:
+""
+}
+
+</div>
+
+`)
+.join("");
+
+
+result.innerHTML=`
+
+<div class="summary">
+
+<div class="card">
+
+<div class="num">
+${money(unpaidAmount)}
+</div>
+
+<div class="muted">
+مانده قابل پرداخت
+</div>
+
+</div>
+
+
+<div class="card">
+
+<div class="num">
+${num(unpaidNeedles)}
+</div>
+
+<div class="muted">
+سوزن پرداخت‌نشده
+</div>
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>
+عملکرد مالی این بازه
+</h2>
+
+<div class="big-money">
+${money(rangeAmount)}
+تومان
+</div>
+
+<p class="muted">
+${shamsi(from)}
+تا
+${shamsi(to)}
+</p>
+
+<p>
+جمع سوزن:
+<b>
+${num(rangeNeedles)}
+</b>
+</p>
+
+</div>
+
+
+<div class="card">
+
+<h2>
+جمع روزانه
+</h2>
+
+${
+dayRows
+||
+'<p class="muted">در این بازه کار تأییدشده‌ای ثبت نشده.</p>'
+}
+
+</div>
+
+
+<div class="card">
+
+<h2>
+ریز کارکرد
+</h2>
+
+${
+detailRows
+||
+'<p class="muted">کار تأییدشده‌ای در این بازه وجود ندارد.</p>'
+}
+
+${
+adjustmentRows
+?
+`
+<hr>
+
+<h3>
+اصلاحیه‌ها
+</h3>
+
+${adjustmentRows}
+`
+:
+""
+}
+
+</div>
+
+
+<div class="card">
+
+<h2>
+پرداخت
+</h2>
+
+${
+lastPayment
+?
+`
+<div class="status-paid">
+
+آخرین تسویه تا:
+${shamsi(lastPayment.paid_through)}
+
+<br>
+
+مبلغ آخرین پرداخت:
+${money(lastPayment.amount)}
+تومان
+
+</div>
+`
+:
+`
+<div class="status-unpaid">
+
+هنوز پرداختی برای این نیرو ثبت نشده است.
+
+</div>
+`
+}
+
+
+${
+unpaidAmount>0
+?
+`
+<button
+class="pay"
+id="payWorker"
+>
+پرداخت ${money(unpaidAmount)} تومان و صفر کردن حساب تا ${shamsi(to)}
+</button>
+
+<p
+id="payMsg"
+>
+</p>
+`
+:
+`
+<div class="status-paid">
+
+این نیرو تا تاریخ انتخاب‌شده حساب پرداخت‌نشده ندارد.
+
+</div>
+`
+}
+
+</div>
+
+
+<div class="card">
+
+<h2>
+سابقه پرداخت‌ها
+</h2>
+
+${
+paymentRows
+||
+'<p class="muted">هنوز پرداختی ثبت نشده.</p>'
+}
+
+</div>
+
+`;
+
+
+/*
+پرداخت
+*/
+
+const payBtn=
+document.getElementById("payWorker");
+
+if(payBtn){
+
+payBtn.onclick=async()=>{
+
+const ok=confirm(
+`مطمئنی ${money(unpaidAmount)} تومان به ${w.full_name} پرداخت شده و حساب او تا ${shamsi(to)} تسویه شود؟`
+);
+
+if(!ok)return;
+
+payBtn.disabled=true;
+
+payBtn.textContent="در حال ثبت پرداخت...";
+
+
+const {
+data:{user}
+}=await sb.auth.getUser();
+
+
+if(!user){
+
+alert("نشست مدیر منقضی شده؛ دوباره وارد شو.");
+
+return;
+
+}
+
+
+const {
+error
+}=await sb
+.from("work_payments")
+.insert({
+
+worker_id:w.id,
+
+paid_through:to,
+
+needles:unpaidNeedles,
+
+amount:unpaidAmount,
+
+note:
+`تسویه کارکرد تا ${shamsi(to)}`,
+
+paid_by:user.id
+
+});
+
+
+if(error){
+
+payBtn.disabled=false;
+
+payBtn.textContent=
+`پرداخت ${money(unpaidAmount)} تومان و صفر کردن حساب تا ${shamsi(to)}`;
+
+document.getElementById("payMsg").className="err";
+
+document.getElementById("payMsg").textContent=
+error.message;
+
+return;
+
+}
+
+
+await loadReport();
+
+};
+
+}
+
+}
+
+
+/*
+نمایش گزارش
+*/
+
+document
+.querySelectorAll("[data-worker-card]")
+.forEach(card=>{
+
+card.onclick=()=>{
+
+const w=
+workers.find(
+x=>String(x.id)===String(card.dataset.workerCard)
+);
+
+if(w){
+
+showWorkerReport(w);
+
+}
+
+};
+
+});
 
 
 /* =========================
@@ -1914,17 +2895,22 @@ manager(p);
    ADJUSTMENT CALC
 ========================= */
 
-const adjNeedles=document.getElementById("adjNeedles");
+const adjNeedles=
+document.getElementById("adjNeedles");
 
-const adjRate=document.getElementById("adjRate");
+const adjRate=
+document.getElementById("adjRate");
 
-const adjCalc=document.getElementById("adjCalc");
+const adjCalc=
+document.getElementById("adjCalc");
 
 function calcAdjustment(){
 
-const n=Number(adjNeedles.value||0);
+const n=
+Number(adjNeedles.value||0);
 
-const r=Number(adjRate.value||0);
+const r=
+Number(adjRate.value||0);
 
 const amount=n*r/1000;
 
@@ -1952,10 +2938,14 @@ const workerId=
 document.getElementById("adjWorker").value;
 
 const n=
-Number(document.getElementById("adjNeedles").value||0);
+Number(
+document.getElementById("adjNeedles").value||0
+);
 
 const rate=
-Number(document.getElementById("adjRate").value||0);
+Number(
+document.getElementById("adjRate").value||0
+);
 
 const note=
 document.getElementById("adjNote").value.trim();
@@ -1969,7 +2959,8 @@ if(!workerId){
 
 msg.className="err";
 
-msg.textContent="نیرو را انتخاب کن";
+msg.textContent=
+"نیرو را انتخاب کن";
 
 return;
 
@@ -1979,7 +2970,8 @@ if(n<=0){
 
 msg.className="err";
 
-msg.textContent="تعداد سوزن اصلاحیه را وارد کن";
+msg.textContent=
+"تعداد سوزن اصلاحیه را وارد کن";
 
 return;
 
@@ -1989,7 +2981,8 @@ if(rate<0){
 
 msg.className="err";
 
-msg.textContent="نرخ را درست وارد کن";
+msg.textContent=
+"نرخ را درست وارد کن";
 
 return;
 
@@ -2046,7 +3039,8 @@ setTimeout(
 
 document.getElementById("addw").onclick=async()=>{
 
-const wmsg=document.getElementById("wmsg");
+const wmsg=
+document.getElementById("wmsg");
 
 wmsg.textContent="";
 
@@ -2064,7 +3058,8 @@ if(!name){
 
 wmsg.className="err";
 
-wmsg.textContent="نام نیرو را وارد کن";
+wmsg.textContent=
+"نام نیرو را وارد کن";
 
 return;
 
@@ -2074,7 +3069,8 @@ if(!code){
 
 wmsg.className="err";
 
-wmsg.textContent="کد نیرو را وارد کن";
+wmsg.textContent=
+"کد نیرو را وارد کن";
 
 return;
 
@@ -2084,7 +3080,8 @@ if(!password){
 
 wmsg.className="err";
 
-wmsg.textContent="رمز عبور را وارد کن";
+wmsg.textContent=
+"رمز عبور را وارد کن";
 
 return;
 
