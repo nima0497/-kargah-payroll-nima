@@ -1314,7 +1314,6 @@ const monthStart=today.slice(0,7)+"-01";
 
 
 const [
-
 pendingRes,
 workersRes,
 todayRes,
@@ -1323,7 +1322,6 @@ todayAdjRes,
 monthAdjRes,
 modelsRes,
 devicesRes
-
 ]=await Promise.all([
 
 
@@ -1391,7 +1389,8 @@ const pending=pendingRes.data||[];
 
 const workers=workersRes.data||[];
 
-const today=todayRes.data||[];
+/* اینجا مشکل صفحه سفید اصلاح شده */
+const todayEntries=todayRes.data||[];
 
 const month=monthRes.data||[];
 
@@ -1448,7 +1447,7 @@ app.innerHTML=`
 <div class="card">
 
 <div class="num">
-${money(sum(today)+sum(todayAdj))}
+${money(sum(todayEntries)+sum(todayAdj))}
 </div>
 
 <div class="muted">
@@ -1474,7 +1473,7 @@ ${money(sum(month)+sum(monthAdj))}
 <div class="card">
 
 <div class="num">
-${num(needles(today)+needles(todayAdj))}
+${num(needles(todayEntries)+needles(todayAdj))}
 </div>
 
 <div class="muted">
