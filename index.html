@@ -67,6 +67,10 @@ background:#b91c1c
 background:#047857
 }
 
+.warning{
+background:#b45309
+}
+
 .row{
 display:grid;
 grid-template-columns:1fr 1fr;
@@ -84,7 +88,7 @@ padding:12px 0
 }
 
 .money{
-font-size:21px;
+font-size:20px;
 font-weight:800
 }
 
@@ -97,7 +101,8 @@ display:inline-block;
 padding:5px 9px;
 border-radius:999px;
 background:#f3f4f6;
-font-size:12px
+font-size:12px;
+margin:2px
 }
 
 .summary{
@@ -122,6 +127,40 @@ color:#b91c1c
 
 .success{
 color:#047857
+}
+
+.current{
+background:#eef2ff;
+border-radius:14px;
+padding:13px;
+margin:8px 0;
+line-height:1.9
+}
+
+.note{
+background:#f9fafb;
+padding:8px 10px;
+border-radius:10px;
+margin-top:7px;
+font-size:14px
+}
+
+.locked{
+background:#fee2e2;
+border-radius:14px;
+padding:13px;
+color:#991b1b;
+font-weight:700
+}
+
+.small{
+font-size:12px
+}
+
+hr{
+border:0;
+border-top:1px solid #eee;
+margin:16px 0
 }
 </style>
 </head>
@@ -162,30 +201,71 @@ m=>({
 );
 
 
-/* تاریخ شمسی */
+/* تاریخ امروز به میلادی، بر اساس ساعت خود گوشی */
+
+function todayISO(){
+
+const d=new Date();
+
+const y=d.getFullYear();
+
+const m=String(d.getMonth()+1).padStart(2,"0");
+
+const day=String(d.getDate()).padStart(2,"0");
+
+return `${y}-${m}-${day}`;
+
+}
+
+
+/* تاریخ شمسی واقعی */
 
 function shamsi(dateValue){
 
 if(!dateValue)return "";
 
-const d=new Date(
-String(dateValue).length===10
-?
-dateValue+"T00:00:00"
-:
-dateValue
+let d;
+
+if(String(dateValue).length===10){
+
+const [y,m,day]=String(dateValue).split("-");
+
+d=new Date(
+Number(y),
+Number(m)-1,
+Number(day)
 );
+
+}else{
+
+d=new Date(dateValue);
+
+}
 
 if(Number.isNaN(d.getTime()))return "";
 
 return new Intl.DateTimeFormat(
-"fa-IR-u-ca-persian",
+"fa-IR-u-ca-persian-nu-latn",
 {
 year:"numeric",
 month:"2-digit",
 day:"2-digit"
 }
 ).format(d);
+
+}
+
+
+function money(n){
+
+return Number(n||0).toLocaleString("fa-IR");
+
+}
+
+
+function num(n){
+
+return Number(n||0).toLocaleString("fa-IR");
 
 }
 
@@ -227,11 +307,18 @@ placeholder="رمز عبور"
 
 `;
 
-document.getElementById("in").onclick=async()=>{
+const loginBtn=document.getElementById("in");
+
+loginBtn.onclick=async()=>{
+
+const msg=document.getElementById("msg");
 
 msg.textContent="";
+msg.className="muted";
 
-const raw=loginid.value.trim();
+const raw=document.getElementById("loginid").value.trim();
+
+const password=document.getElementById("pass").value;
 
 if(!raw){
 
@@ -241,7 +328,7 @@ return;
 
 }
 
-if(!pass.value){
+if(!password){
 
 msg.textContent="رمز عبور را وارد کن";
 
@@ -249,30 +336,18 @@ return;
 
 }
 
-
-/*
-اگر ورودی @ داشته باشد،
-مدیر است.
-
-اگر @ نداشته باشد،
-کد نیرو به ایمیل داخلی تبدیل می‌شود.
-*/
-
 const email=raw.includes("@")
 ?
 raw
 :
 (raw.toLowerCase()+"@kargah.local");
 
-
 const {error}=await sb.auth.signInWithPassword({
 
-email:email,
-
-password:pass.value
+email,
+password
 
 });
-
 
 if(error){
 
@@ -317,7 +392,7 @@ return p||null;
 
 
 /* =========================
-   BOOTSTRAP MANAGER
+   BOOTSTRAP
 ========================= */
 
 async function bootstrap(){
@@ -385,15 +460,19 @@ worker(p);
 
 
 /* =========================
-   WORKER PANEL
+   WORKER
 ========================= */
 
 async function worker(p){
 
+const today=todayISO();
+
 const [
-{data:models},
-{data:devices},
-{data:entries}
+modelsRes,
+devicesRes,
+entriesRes,
+dayRes,
+adjustmentsRes
 ]=await Promise.all([
 
 sb
@@ -410,13 +489,41 @@ sb
 
 sb
 .from("work_entries")
-.select("*,model_parts(part_name,size_label,models(name)),devices(name,heads)")
+.select(`
+*,
+model_parts(part_name,size_label,models(name),required_quantity),
+devices(name,heads),
+production_garments(garment_no,size_label,status)
+`)
 .eq("worker_id",p.id)
 .order("created_at",{ascending:false})
-.limit(80)
+.limit(100),
+
+sb
+.from("worker_day_status")
+.select("*")
+.eq("worker_id",p.id)
+.eq("work_date",today)
+.maybeSingle(),
+
+sb
+.from("work_adjustments")
+.select("*")
+.eq("worker_id",p.id)
+.eq("work_date",today)
+.order("created_at",{ascending:false})
 
 ]);
 
+const models=modelsRes.data||[];
+
+const devices=devicesRes.data||[];
+
+const entries=entriesRes.data||[];
+
+const dayClosed=!!dayRes.data;
+
+const adjustments=adjustmentsRes.data||[];
 
 let parts=[];
 
@@ -429,6 +536,10 @@ app.innerHTML=`
 سلام ${esc(p.full_name)}
 </h2>
 
+<p class="muted">
+امروز ${shamsi(today)}
+</p>
+
 <button class="secondary" id="out">
 خروج
 </button>
@@ -436,6 +547,41 @@ app.innerHTML=`
 </div>
 
 
+<div class="card">
+
+<h2>
+لباس جاری
+</h2>
+
+<div id="garmentInfo" class="current">
+
+مدل را انتخاب کن تا لباس جاری نمایش داده شود.
+
+</div>
+
+</div>
+
+
+${
+dayClosed
+?
+`
+<div class="card">
+
+<div class="locked">
+
+کار امروز شما پایان یافته است.
+
+<br>
+
+از این لحظه امکان ثبت کار جدید برای امروز وجود ندارد.
+
+</div>
+
+</div>
+`
+:
+`
 <div class="card">
 
 <h2>
@@ -449,7 +595,7 @@ app.innerHTML=`
 مدل را انتخاب کن
 </option>
 
-${(models||[]).map(x=>`
+${models.map(x=>`
 
 <option value="${x.id}">
 ${esc(x.name)}
@@ -475,7 +621,7 @@ ${esc(x.name)}
 دستگاه را انتخاب کن
 </option>
 
-${(devices||[]).map(x=>`
+${devices.map(x=>`
 
 <option value="${x.id}">
 ${esc(x.name)}
@@ -493,7 +639,7 @@ ${esc(x.name)}
 </option>
 
 <option value="manual">
-کار دستی
+کار دستی / ناقص
 </option>
 
 </select>
@@ -502,9 +648,10 @@ ${esc(x.name)}
 <input
 id="qty"
 type="number"
-min="1"
+min="0.001"
+step="0.001"
 value="1"
-placeholder="تعداد کامل"
+placeholder="تعداد انجام‌شده"
 >
 
 
@@ -513,16 +660,24 @@ id="manual"
 class="hidden"
 type="number"
 min="1"
+step="1"
 placeholder="تعداد واقعی سوزن انجام‌شده"
 >
+
 
 <p
 id="manualHelp"
 class="muted hidden"
 >
-برای کار دستی، تعداد واقعی سوزن کارشده را وارد کن؛
-حتی اگر نصف یا بخشی از یک قسمت باشد.
+در حالت دستی، تعداد واقعی سوزن را وارد کن.
+حداکثر آن به اندازه سوزن پیش‌فرض همان قسمت است.
 </p>
+
+
+<input
+id="note"
+placeholder="یادداشت این کار (اختیاری)"
+>
 
 
 <p id="calc" class="muted"></p>
@@ -536,6 +691,33 @@ class="muted hidden"
 <p id="msg"></p>
 
 </div>
+`
+}
+
+
+${
+!dayClosed
+?
+`
+<div class="card">
+
+<h3>
+پایان کار امروز
+</h3>
+
+<p class="muted">
+بعد از زدن این دکمه دیگر برای امروز امکان ثبت کار جدید نداری.
+</p>
+
+<button class="danger" id="finishDay">
+اتمام کار امروز من
+</button>
+
+</div>
+`
+:
+""
+}
 
 
 <div class="card">
@@ -548,173 +730,340 @@ class="muted hidden"
 
 </div>
 
+
+<div class="card">
+
+<h2>
+اصلاحیه‌های امروز
+</h2>
+
+<div id="adjustments"></div>
+
+</div>
+
 `;
 
 
-/* انتخاب مدل */
+const out=document.getElementById("out");
 
-document.getElementById("model").onchange=async()=>{
+out.onclick=()=>{
+
+sb.auth.signOut().then(login);
+
+};
+
+
+/* =========================
+   CURRENT GARMENT INFO
+========================= */
+
+async function refreshGarmentInfo(){
+
+const info=document.getElementById("garmentInfo");
+
+const modelEl=document.getElementById("model");
+
+if(!info||!modelEl||!modelEl.value){
+
+if(info){
+
+info.innerHTML=
+"مدل را انتخاب کن تا لباس جاری نمایش داده شود.";
+
+}
+
+return;
+
+}
+
+const {data:g}=await sb
+.from("production_garments")
+.select("*")
+.eq("worker_id",p.id)
+.eq("model_id",Number(modelEl.value))
+.eq("status","open")
+.order("garment_no",{ascending:false})
+.limit(1)
+.maybeSingle();
+
+if(g){
+
+info.innerHTML=`
+
+<b>
+لباس شماره ${num(g.garment_no)}
+</b>
+
+<br>
+
+${
+g.size_label
+?
+`سایز: <b>${esc(g.size_label)}</b>`
+:
+`سایز هنوز مشخص نشده؛ با ثبت پندول یا دن‌کار مشخص می‌شود.`
+}
+
+`;
+
+}else{
+
+info.innerHTML=`
+
+هنوز لباس جاری برای این مدل ساخته نشده.
+
+<br>
+
+<span class="muted">
+اولین ثبت کار، لباس بعدی را به‌صورت خودکار شروع می‌کند.
+</span>
+
+`;
+
+}
+
+}
+
+
+/* =========================
+   MODEL
+========================= */
+
+if(!dayClosed){
+
+const modelEl=document.getElementById("model");
+
+const partEl=document.getElementById("part");
+
+const deviceEl=document.getElementById("device");
+
+const typeEl=document.getElementById("type");
+
+const qtyEl=document.getElementById("qty");
+
+const manualEl=document.getElementById("manual");
+
+const manualHelp=document.getElementById("manualHelp");
+
+const calcEl=document.getElementById("calc");
+
+const saveEl=document.getElementById("save");
+
+const msgEl=document.getElementById("msg");
+
+const noteEl=document.getElementById("note");
+
+
+modelEl.onchange=async()=>{
 
 const r=await sb
 .from("model_parts")
 .select("*,models(name)")
-.eq("model_id",model.value)
+.eq("model_id",modelEl.value)
 .eq("active",true)
-.order("part_name");
+.order("part_name")
+.order("size_label");
 
 parts=r.data||[];
 
-
-part.innerHTML=
-'<option value="">قسمت را انتخاب کن</option>'
+partEl.innerHTML=
+`
+<option value="">
+قسمت را انتخاب کن
+</option>
+`
 +
 parts.map(x=>`
 
 <option value="${x.id}">
 ${esc(x.part_name)}
-${x.size_label?` — سایز ${esc(x.size_label)}`:""}
- — ${Number(x.needles).toLocaleString()} سوزن
+${x.size_label
+?
+` — سایز ${esc(x.size_label)}`
+:
+""}
+ — ${num(x.needles)} سوزن
 </option>
 
 `).join("");
 
 calcIt();
 
+refreshGarmentInfo();
+
 };
 
 
-/* محاسبه */
-
-function calcIt(){
+partEl.onchange=()=>{
 
 const pt=parts.find(
-x=>String(x.id)===String(part.value)
+x=>String(x.id)===String(partEl.value)
 );
 
-let n=0;
+if(pt){
 
-if(type.value==="manual"){
+qtyEl.max=pt.required_quantity||1;
 
-n=Number(manual.value||0);
+manualEl.max=pt.needles;
 
-}else{
+if(
+Number(qtyEl.value||0)>
+Number(pt.required_quantity||1)
+){
 
-n=
-Number(pt?.needles||0)
-*
-Number(qty.value||1);
+qtyEl.value=pt.required_quantity||1;
 
 }
 
-calc.textContent=n
-?
-`تعداد سوزن: ${n.toLocaleString()} — مبلغ بر اساس نرخ دستگاه بعد از ثبت محاسبه می‌شود.`
-:
-"";
-
 }
-
-
-/* تغییر فیلدها */
-
-[part,qty,manual].forEach(x=>
-x.addEventListener("input",calcIt)
-);
-
-
-type.onchange=()=>{
-
-const isManual=
-type.value==="manual";
-
-
-manual.classList.toggle(
-"hidden",
-!isManual
-);
-
-
-manualHelp.classList.toggle(
-"hidden",
-!isManual
-);
-
-
-qty.classList.toggle(
-"hidden",
-isManual
-);
-
 
 calcIt();
 
 };
 
 
-/* ثبت کار */
-
-save.onclick=async()=>{
-
-msg.className="";
+function calcIt(){
 
 const pt=parts.find(
-x=>String(x.id)===String(part.value)
+x=>String(x.id)===String(partEl.value)
+);
+
+let n=0;
+
+if(typeEl.value==="manual"){
+
+n=Number(manualEl.value||0);
+
+}else{
+
+n=
+Number(pt?.needles||0)
+*
+Number(qtyEl.value||0);
+
+}
+
+calcEl.textContent=n
+?
+`تعداد سوزن: ${num(n)} — مبلغ بر اساس نرخ دستگاه بعد از ثبت محاسبه می‌شود.`
+:
+"";
+
+}
+
+
+[partEl,qtyEl,manualEl].forEach(x=>
+x.addEventListener("input",calcIt)
 );
 
 
-if(!pt||!device.value){
+typeEl.onchange=()=>{
 
-msg.textContent=
+const isManual=
+typeEl.value==="manual";
+
+manualEl.classList.toggle(
+"hidden",
+!isManual
+);
+
+manualHelp.classList.toggle(
+"hidden",
+!isManual
+);
+
+qtyEl.classList.toggle(
+"hidden",
+isManual
+);
+
+calcIt();
+
+};
+
+
+saveEl.onclick=async()=>{
+
+msgEl.className="";
+
+const pt=parts.find(
+x=>String(x.id)===String(partEl.value)
+);
+
+if(!pt||!deviceEl.value){
+
+msgEl.className="err";
+
+msgEl.textContent=
 "مدل، قسمت و دستگاه را انتخاب کن";
 
 return;
 
 }
 
-
 const isManual=
-type.value==="manual";
+typeEl.value==="manual";
 
+let quantity;
 
-const manualN=
-isManual
-?
-Number(manual.value||0)
-:
-null;
+let manualNeedles=null;
 
+if(isManual){
 
-if(isManual && manualN<=0){
+manualNeedles=
+Number(manualEl.value||0);
 
-msg.className="err";
+if(manualNeedles<=0){
 
-msg.textContent=
+msgEl.className="err";
+
+msgEl.textContent=
 "تعداد واقعی سوزن را وارد کن";
 
 return;
 
 }
 
+if(manualNeedles>Number(pt.needles)){
 
-if(!isManual &&
-Number(qty.value||0)<1){
+msgEl.className="err";
 
-msg.className="err";
-
-msg.textContent=
-"تعداد را حداقل ۱ وارد کن";
+msgEl.textContent=
+`حداکثر سوزن دستی این قسمت ${num(pt.needles)} است`;
 
 return;
 
 }
 
+}else{
 
-/*
-هر بار زدن دکمه ثبت،
-یک رکورد جداگانه ساخته می‌شود.
-پس یک نیرو می‌تواند در یک روز
-هر تعداد کار مختلف ثبت کند.
-*/
+quantity=
+Number(qtyEl.value||0);
+
+if(quantity<=0){
+
+msgEl.className="err";
+
+msgEl.textContent=
+"تعداد انجام‌شده را وارد کن";
+
+return;
+
+}
+
+if(quantity>Number(pt.required_quantity||1)){
+
+msgEl.className="err";
+
+msgEl.textContent=
+`حداکثر مقدار این قسمت برای یک لباس ${pt.required_quantity} است`;
+
+return;
+
+}
+
+}
+
 
 const {error}=await sb
 .from("work_entries")
@@ -724,54 +1073,45 @@ worker_id:p.id,
 
 model_part_id:pt.id,
 
-device_id:Number(device.value),
+device_id:Number(deviceEl.value),
 
-entry_type:type.value,
+entry_type:typeEl.value,
 
-quantity:
-isManual
-?
-1
-:
-Number(qty.value||1),
+quantity:isManual?1:quantity,
 
-manual_needles:manualN,
+manual_needles:manualNeedles,
 
 status:"pending",
 
-work_date:new Date()
-.toISOString()
-.slice(0,10)
+work_date:today,
+
+note:noteEl.value.trim()||null
 
 });
 
 
 if(error){
 
-msg.className="err";
+msgEl.className="err";
 
-msg.textContent=error.message;
+msgEl.textContent=error.message;
 
 }else{
 
-msg.className="success";
+msgEl.className="success";
 
-msg.textContent=
+msgEl.textContent=
 "ثبت شد و برای تأیید مدیر رفت.";
 
+noteEl.value="";
 
-/*
-بعد از ثبت،
-فرم دوباره آماده ثبت کار بعدی می‌شود.
-*/
+manualEl.value="";
 
-manual.value="";
-
-qty.value="1";
+qtyEl.value="1";
 
 setTimeout(
 ()=>worker(p),
-500
+600
 );
 
 }
@@ -779,45 +1119,104 @@ setTimeout(
 };
 
 
-/* خروج */
+/* =========================
+   FINISH DAY
+========================= */
 
-out.onclick=()=>{
+document.getElementById("finishDay").onclick=async()=>{
 
-sb.auth.signOut().then(login);
+const ok=confirm(
+"مطمئنی کار امروزت تمام شده؟ بعد از تأیید، دیگر امکان ثبت کار جدید برای امروز نداری."
+);
+
+if(!ok)return;
+
+const {error}=await sb
+.from("worker_day_status")
+.insert({
+
+worker_id:p.id,
+
+work_date:today
+
+});
+
+if(error){
+
+alert(error.message);
+
+}else{
+
+worker(p);
+
+}
 
 };
 
+}
 
-/* لیست کارها */
 
-list.innerHTML=
-(entries||[])
-.map(e=>`
+/* =========================
+   WORKER LIST
+========================= */
+
+document.getElementById("list").innerHTML=
+entries.map(e=>`
 
 <div class="item">
 
 <b>
+
 ${esc(e.model_parts?.models?.name)}
 —
+
 ${esc(e.model_parts?.part_name)}
 
-${e.model_parts?.size_label
+${
+e.model_parts?.size_label
 ?
-" — سایز "+esc(e.model_parts.size_label)
+` — سایز ${esc(e.model_parts.size_label)}`
 :
-""}
+""
+}
 
 </b>
 
 <br>
 
-${Number(e.total_needles).toLocaleString()}
+${
+e.production_garments
+?
+`
+<span class="pill">
+لباس شماره ${num(e.production_garments.garment_no)}
+</span>
+
+${
+e.production_garments.size_label
+?
+`
+<span class="pill">
+سایز ${esc(e.production_garments.size_label)}
+</span>
+`
+:
+""
+}
+`
+:
+""
+}
+
+<br>
+
+${num(e.total_needles)}
 سوزن
 
 —
 
 <span class="money">
-${Number(e.amount).toLocaleString()}
+${money(e.amount)}
 تومان
 </span>
 
@@ -843,6 +1242,18 @@ e.status==="approved"
 ${shamsi(e.work_date)}
 </span>
 
+${
+e.note
+?
+`
+<div class="note">
+یادداشت: ${esc(e.note)}
+</div>
+`
+:
+""
+}
+
 </div>
 
 `)
@@ -850,35 +1261,81 @@ ${shamsi(e.work_date)}
 ||
 '<p class="muted">هنوز کاری ثبت نشده.</p>';
 
+
+/* =========================
+   ADJUSTMENTS WORKER
+========================= */
+
+document.getElementById("adjustments").innerHTML=
+adjustments.map(a=>`
+
+<div class="item">
+
+<b>
+${num(a.needles)} سوزن
+</b>
+
+<br>
+
+${money(a.amount)}
+تومان
+
+${
+a.note
+?
+`
+<div class="note">
+${esc(a.note)}
+</div>
+`
+:
+""
+}
+
+</div>
+
+`)
+.join("")
+||
+'<p class="muted">اصلاحیه‌ای برای امروز ثبت نشده.</p>';
+
 }
 
 
 /* =========================
-   MANAGER PANEL
+   MANAGER
 ========================= */
 
 async function manager(p){
 
+const today=todayISO();
+
+const monthStart=today.slice(0,7)+"-01";
+
+
 const [
 
-{data:pending},
-
-{data:workers},
-
-{data:today},
-
-{data:month},
-
-{data:models},
-
-{data:devices}
+pendingRes,
+workersRes,
+todayRes,
+monthRes,
+todayAdjRes,
+monthAdjRes,
+modelsRes,
+devicesRes
 
 ]=await Promise.all([
 
 
 sb
 .from("work_entries")
-.select("*,profiles!work_entries_worker_id_fkey(full_name),model_parts(part_name,size_label,models(name)),devices(name,heads)")
+.select(`
+*,
+profiles!work_entries_worker_id_fkey(full_name,worker_code),
+model_parts(part_name,size_label,models(name)),
+devices(name,heads),
+production_garments(garment_no,size_label)
+`)
 .eq("status","pending")
 .order("created_at"),
 
@@ -894,20 +1351,26 @@ sb
 .from("work_entries")
 .select("amount,total_needles")
 .eq("status","approved")
-.eq(
-"work_date",
-new Date().toISOString().slice(0,10)
-),
+.eq("work_date",today),
 
 
 sb
 .from("work_entries")
 .select("amount,total_needles")
 .eq("status","approved")
-.gte(
-"work_date",
-new Date().toISOString().slice(0,7)+"-01"
-),
+.gte("work_date",monthStart),
+
+
+sb
+.from("work_adjustments")
+.select("amount,needles")
+.eq("work_date",today),
+
+
+sb
+.from("work_adjustments")
+.select("amount,needles")
+.gte("work_date",monthStart),
 
 
 sb
@@ -924,6 +1387,23 @@ sb
 ]);
 
 
+const pending=pendingRes.data||[];
+
+const workers=workersRes.data||[];
+
+const today=todayRes.data||[];
+
+const month=monthRes.data||[];
+
+const todayAdj=todayAdjRes.data||[];
+
+const monthAdj=monthAdjRes.data||[];
+
+const models=modelsRes.data||[];
+
+const devices=devicesRes.data||[];
+
+
 const sum=a=>
 (a||[])
 .reduce(
@@ -935,7 +1415,7 @@ const sum=a=>
 const needles=a=>
 (a||[])
 .reduce(
-(s,x)=>s+Number(x.total_needles||0),
+(s,x)=>s+Number(x.total_needles||x.needles||0),
 0
 );
 
@@ -952,6 +1432,10 @@ app.innerHTML=`
 سلام ${esc(p.full_name)}
 </p>
 
+<p class="muted">
+امروز ${shamsi(today)}
+</p>
+
 <button class="secondary" id="out">
 خروج
 </button>
@@ -964,7 +1448,7 @@ app.innerHTML=`
 <div class="card">
 
 <div class="num">
-${Number(sum(today)).toLocaleString()}
+${money(sum(today)+sum(todayAdj))}
 </div>
 
 <div class="muted">
@@ -977,7 +1461,7 @@ ${Number(sum(today)).toLocaleString()}
 <div class="card">
 
 <div class="num">
-${Number(sum(month)).toLocaleString()}
+${money(sum(month)+sum(monthAdj))}
 </div>
 
 <div class="muted">
@@ -990,7 +1474,7 @@ ${Number(sum(month)).toLocaleString()}
 <div class="card">
 
 <div class="num">
-${Number(needles(today)).toLocaleString()}
+${num(needles(today)+needles(todayAdj))}
 </div>
 
 <div class="muted">
@@ -1003,7 +1487,7 @@ ${Number(needles(today)).toLocaleString()}
 <div class="card">
 
 <div class="num">
-${(pending||[]).length}
+${pending.length}
 </div>
 
 <div class="muted">
@@ -1022,6 +1506,75 @@ ${(pending||[]).length}
 </h2>
 
 <div id="pending"></div>
+
+</div>
+
+
+<div class="card">
+
+<h2>
+اصلاحیه کارکرد
+</h2>
+
+<p class="muted">
+مثلاً اگر دستگاه یک ساعت خراب بوده، مدیر می‌تواند سوزن اضافه برای نیرو ثبت کند.
+</p>
+
+
+<select id="adjWorker">
+
+<option value="">
+نیرو را انتخاب کن
+</option>
+
+${workers.map(w=>`
+
+<option value="${w.id}">
+${esc(w.full_name)}
+${w.worker_code
+?
+` — ${esc(w.worker_code)}`
+:
+""}
+</option>
+
+`).join("")}
+
+</select>
+
+
+<input
+id="adjNeedles"
+type="number"
+min="1"
+placeholder="تعداد سوزن اصلاحیه"
+>
+
+
+<input
+id="adjRate"
+type="number"
+min="0"
+step="1"
+placeholder="نرخ هر هزار سوزن"
+>
+
+
+<input
+id="adjNote"
+placeholder="دلیل اصلاحیه"
+>
+
+
+<p id="adjCalc" class="muted"></p>
+
+
+<button class="warning" id="addAdj">
+ثبت اصلاحیه
+</button>
+
+
+<p id="adjMsg"></p>
 
 </div>
 
@@ -1077,8 +1630,7 @@ placeholder="رمز عبور"
 مدل‌ها
 </h2>
 
-${(models||[])
-.map(m=>`
+${models.map(m=>`
 
 <div class="item">
 
@@ -1095,8 +1647,7 @@ ${m.model_parts.length}
 
 </div>
 
-`)
-.join("")}
+`).join("")}
 
 </div>
 
@@ -1107,38 +1658,49 @@ ${m.model_parts.length}
 دستگاه‌ها و نرخ
 </h2>
 
-${(devices||[])
-.map(d=>`
+${devices.map(d=>`
 
 <div class="item">
 
 ${esc(d.name)}
 —
 
-${Number(d.rate_per_1000).toLocaleString()}
+${money(d.rate_per_1000)}
 تومان / هزار سوزن
 
 </div>
 
-`)
-.join("")}
+`).join("")}
 
 </div>
 
 `;
 
 
-/* کارهای منتظر تأیید */
+/* =========================
+   PENDING
+========================= */
 
-pending.innerHTML=
-(pending||[])
-.map(e=>`
+document.getElementById("pending").innerHTML=
+pending.map(e=>`
 
 <div class="item">
 
 <b>
 ${esc(e.profiles?.full_name)}
 </b>
+
+${
+e.profiles?.worker_code
+?
+`
+<span class="pill">
+${esc(e.profiles.worker_code)}
+</span>
+`
+:
+""
+}
 
 <br>
 
@@ -1147,21 +1709,67 @@ ${esc(e.model_parts?.models?.name)}
 
 ${esc(e.model_parts?.part_name)}
 
-${e.model_parts?.size_label
+${
+e.model_parts?.size_label
 ?
-" — سایز "+esc(e.model_parts.size_label)
+` — سایز ${esc(e.model_parts.size_label)}`
 :
-""}
+""
+}
+
+${
+e.production_garments
+?
+`
+<br>
+
+<span class="pill">
+لباس شماره ${num(e.production_garments.garment_no)}
+</span>
+
+${
+e.production_garments.size_label
+?
+`
+<span class="pill">
+سایز ${esc(e.production_garments.size_label)}
+</span>
+`
+:
+""
+}
+`
+:
+""
+}
 
 <br>
 
-${Number(e.total_needles).toLocaleString()}
+${num(e.total_needles)}
 سوزن
 
 —
 
-${Number(e.amount).toLocaleString()}
+${money(e.amount)}
 تومان
+
+<br>
+
+<span class="muted">
+${shamsi(e.work_date)}
+</span>
+
+${
+e.note
+?
+`
+<div class="note">
+یادداشت نیرو: ${esc(e.note)}
+</div>
+`
+:
+""
+}
 
 
 <button
@@ -1187,11 +1795,12 @@ data-no="${e.id}"
 '<p class="muted">موردی برای تأیید نیست.</p>';
 
 
-/* لیست نیروها */
+/* =========================
+   WORKERS
+========================= */
 
-workers.innerHTML=
-(workers||[])
-.map(w=>`
+document.getElementById("workers").innerHTML=
+workers.map(w=>`
 
 <div class="item">
 
@@ -1220,7 +1829,9 @@ ${w.active
 '<p class="muted">نیرویی ثبت نشده.</p>';
 
 
-/* تأیید */
+/* =========================
+   APPROVE
+========================= */
 
 document
 .querySelectorAll("[data-ok]")
@@ -1259,7 +1870,9 @@ manager(p);
 );
 
 
-/* رد */
+/* =========================
+   REJECT
+========================= */
 
 document
 .querySelectorAll("[data-no]")
@@ -1298,49 +1911,181 @@ manager(p);
 );
 
 
-/* ساخت نیرو */
+/* =========================
+   ADJUSTMENT CALC
+========================= */
 
-addw.onclick=async()=>{
+const adjNeedles=document.getElementById("adjNeedles");
+
+const adjRate=document.getElementById("adjRate");
+
+const adjCalc=document.getElementById("adjCalc");
+
+function calcAdjustment(){
+
+const n=Number(adjNeedles.value||0);
+
+const r=Number(adjRate.value||0);
+
+const amount=n*r/1000;
+
+adjCalc.textContent=
+n&&r
+?
+`مبلغ اصلاحیه: ${money(amount)} تومان`
+:
+"";
+
+}
+
+adjNeedles.oninput=calcAdjustment;
+
+adjRate.oninput=calcAdjustment;
+
+
+/* =========================
+   ADD ADJUSTMENT
+========================= */
+
+document.getElementById("addAdj").onclick=async()=>{
+
+const workerId=
+document.getElementById("adjWorker").value;
+
+const n=
+Number(document.getElementById("adjNeedles").value||0);
+
+const rate=
+Number(document.getElementById("adjRate").value||0);
+
+const note=
+document.getElementById("adjNote").value.trim();
+
+const msg=
+document.getElementById("adjMsg");
+
+msg.className="";
+
+if(!workerId){
+
+msg.className="err";
+
+msg.textContent="نیرو را انتخاب کن";
+
+return;
+
+}
+
+if(n<=0){
+
+msg.className="err";
+
+msg.textContent="تعداد سوزن اصلاحیه را وارد کن";
+
+return;
+
+}
+
+if(rate<0){
+
+msg.className="err";
+
+msg.textContent="نرخ را درست وارد کن";
+
+return;
+
+}
+
+const amount=n*rate/1000;
+
+const {error}=await sb
+.from("work_adjustments")
+.insert({
+
+worker_id:workerId,
+
+work_date:today,
+
+needles:n,
+
+rate_per_1000:rate,
+
+amount:amount,
+
+note:note||null,
+
+created_by:p.id
+
+});
+
+if(error){
+
+msg.className="err";
+
+msg.textContent=error.message;
+
+}else{
+
+msg.className="success";
+
+msg.textContent=
+"اصلاحیه ثبت شد.";
+
+setTimeout(
+()=>manager(p),
+600
+);
+
+}
+
+};
+
+
+/* =========================
+   ADD WORKER
+========================= */
+
+document.getElementById("addw").onclick=async()=>{
+
+const wmsg=document.getElementById("wmsg");
 
 wmsg.textContent="";
 
-const name=wname.value.trim();
+const name=
+document.getElementById("wname").value.trim();
 
-const code=wcode.value.trim();
+const code=
+document.getElementById("wcode").value.trim();
 
-const password=wpass.value;
+const password=
+document.getElementById("wpass").value;
 
 
 if(!name){
 
 wmsg.className="err";
 
-wmsg.textContent=
-"نام نیرو را وارد کن";
+wmsg.textContent="نام نیرو را وارد کن";
 
 return;
 
 }
-
 
 if(!code){
 
 wmsg.className="err";
 
-wmsg.textContent=
-"کد نیرو را وارد کن";
+wmsg.textContent="کد نیرو را وارد کن";
 
 return;
 
 }
 
-
 if(!password){
 
 wmsg.className="err";
 
-wmsg.textContent=
-"رمز عبور را وارد کن";
+wmsg.textContent="رمز عبور را وارد کن";
 
 return;
 
@@ -1388,9 +2133,9 @@ apikey:SUPA_KEY,
 
 body:JSON.stringify({
 
-code:code,
+code,
 
-password:password,
+password,
 
 full_name:name
 
@@ -1428,8 +2173,7 @@ setTimeout(
 
 wmsg.className="err";
 
-wmsg.textContent=
-e.message;
+wmsg.textContent=e.message;
 
 }
 
@@ -1438,7 +2182,7 @@ e.message;
 
 /* خروج */
 
-out.onclick=()=>{
+document.getElementById("out").onclick=()=>{
 
 sb.auth.signOut().then(login);
 
@@ -1448,7 +2192,7 @@ sb.auth.signOut().then(login);
 
 
 /* =========================
-   AUTH STATE
+   AUTH
 ========================= */
 
 sb.auth.onAuthStateChange(
@@ -1476,22 +2220,7 @@ return;
 }
 
 
-/*
-bootstrap فقط برای اولین حساب مدیر
-استفاده می‌شود.
-*/
-
 const b=await bootstrap();
-
-
-if(b?.error && b?.ok!==true){
-
-/*
-اگر مدیر از قبل وجود داشته باشد،
-خطای bootstrap مانع ورود نمی‌شود.
-*/
-
-}
 
 
 const p=await me();
